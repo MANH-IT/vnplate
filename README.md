@@ -176,10 +176,88 @@ Kết quả JSON gồm `frames_processed`, `fps`, và danh sách kết quả fus
 
 ```bash
 python scripts/eval.py --split test --detector checkpoints/detector_best.pt
+
+# thử nhiều ngưỡng confidence để chọn operating point
+python scripts/eval.py --split val --detector checkpoints/detector_best.pt --conf-threshold 0.05 0.3 0.5 0.6
 ```
 
 - Detection: Precision / Recall / F1 tại IoU 0.5 (greedy Hungarian matching).
 - Tracking: `tracking_metrics()` trong `engine/evaluate.py` trả về IDF1 + ID switches.
+
+## Kết quả thực nghiệm
+
+### Cấu hình huấn luyện
+
+| Thông số | Giá trị |
+| --- | --- |
+| GPU | NVIDIA RTX 3050 Laptop (4GB VRAM) |
+| Config | `configs/low_vram.yaml` (Tiny backbone, hidden_dim 128, 256×384, batch 4) |
+| Epochs | 50 |
+| Thời gian | ~3.3 giờ (11.893s) |
+| Loss | 19.4 → 4.61 |
+
+### Tiến trình huấn luyện (tập validation, 20 batch mỗi lần eval)
+
+| Epoch | Loss | F1 | Precision | Recall |
+| --- | --- | --- | --- | --- |
+| 1 | 8.33 | 0.000 | 0.000 | 0.000 |
+| 10 | 6.85 | 0.005 | 0.003 | 0.033 |
+| 20 | 6.52 | 0.019 | 0.010 | 0.133 |
+| 30 | 6.08 | 0.023 | 0.013 | 0.167 |
+| 40 | 5.40 | 0.041 | 0.022 | 0.267 |
+| 50 | **4.61** | **0.075** | 0.041 | **0.433** |
+
+### Đánh giá đầy đủ trên validation (1.400 ảnh, class-agnostic)
+
+| Ngưỡng conf | Precision | Recall | F1 |
+| --- | --- | --- | --- |
+| 0.05 | 0.084 | 0.482 | 0.143 |
+| 0.30 | 0.134 | 0.469 | 0.209 |
+| 0.50 | 0.194 | 0.407 | 0.263 |
+| **0.60** | **0.232** | **0.346** | **0.278** |
+| 0.70 | 0.267 | 0.263 | 0.265 |
+| 0.80 | 0.319 | 0.171 | 0.223 |
+
+Operating point tốt nhất trên tập validation: **conf ≈ 0.6** (F1 0.278).
+
+### Kết quả định tính trên ảnh
+
+<table>
+<tr>
+<td align="center"><b>Ảnh gốc (1920×1279)</b></td>
+<td align="center"><b>Kết quả detect (conf 0.3)</b></td>
+</tr>
+<tr>
+<td><img src="data_test/anh.jpg" width="460"></td>
+<td><img src="demo/new_anh.jpg" width="460"></td>
+</tr>
+</table>
+
+Kết quả: 3 detection (2 `bus`, 1 `truck`) với confidence 0.42–0.60. Các box tập trung
+trong một vùng nhỏ, cho thấy hiện tượng dự đoán trùng lặp — nguyên nhân chính khiến precision còn thấp.
+
+### Kết quả định tính trên video
+
+```bash
+python scripts/detect.py --config configs/low_vram.yaml \
+  --input "data_test/Các phương tiện giao thông trên đường phố.mp4" \
+  --detector checkpoints/detector_best.pt \
+  --output demo/new_video.mp4 --result-json demo/new_video.json \
+  --conf-threshold 0.3 --max-frames 60
+```
+
+- 60 frame xử lý ở **22.85 fps**
+- Tracking ổn định **6 track**, mỗi track được vote 35–58 frame
+- Temporal fusion (char_vote) gán nhãn nhất quán cho từng track
+- Video kết quả: [demo/new_video.mp4](demo/new_video.mp4)
+
+### Nhận xét
+
+- **Tracking + temporal fusion hoạt động tốt**: giữ danh tính ổn định, nhãn nhất quán qua thời gian.
+- **Detection đã học được**: recall tăng dần đến 0.43, F1 đầy đủ 0.143 → 0.278 khi tăng ngưỡng conf.
+- **Hạn chế còn lại**: precision thấp (nhiều box trùng/giả) và phân loại lớp thiên lệch (video gán toàn `bus`).
+- **Hướng cải thiện**: thêm augment (flip/mosaic/color jitter), cân bằng lớp (car 9091 vs bus 680),
+  train lâu hơn (DETR gốc cần hàng trăm epoch), hoặc dùng baseline YOLO11 để so sánh.
 
 ## Ghi chú kỹ thuật
 

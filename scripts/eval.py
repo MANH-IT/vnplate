@@ -18,6 +18,7 @@ def main() -> None:
     parser.add_argument("--split", default="test")
     parser.add_argument("--detector", default=None)
     parser.add_argument("--max-batches", type=int, default=None)
+    parser.add_argument("--conf-threshold", nargs="+", type=float, default=[0.05])
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -27,7 +28,9 @@ def main() -> None:
     if args.detector:
         detector = load_detector(args.detector, device)
         dataset = build_detection_dataset(cfg, split=args.split, synthetic_length=64)
-        print("detection:", evaluate_detection(detector, dataset, device, max_batches=args.max_batches))
+        for conf in args.conf_threshold:
+            metrics = evaluate_detection(detector, dataset, device, max_batches=args.max_batches, conf_threshold=conf)
+            print(f"conf={conf:.2f} detection: {metrics}")
 
 
 if __name__ == "__main__":

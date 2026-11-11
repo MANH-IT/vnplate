@@ -14,14 +14,14 @@ from ..tracking.association import iou_matrix
 
 
 @torch.no_grad()
-def evaluate_detection(model, dataset, device="cuda", iou_threshold=0.5, max_batches=None) -> dict:
+def evaluate_detection(model, dataset, device="cuda", iou_threshold=0.5, max_batches=None, conf_threshold: float = 0.05) -> dict:
     device = torch.device(device if torch.cuda.is_available() else "cpu")
     model.eval()
     loader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_detr)
     tp = fp = fn = 0
     for i, batch in enumerate(tqdm(loader, desc="eval detector")):
         images = batch["images"].to(device)
-        preds = model.detect(images, conf_threshold=0.05)[0]
+        preds = model.detect(images, conf_threshold=conf_threshold)[0]
         gt = batch["targets"][0]["boxes"].numpy()
         if gt.size:
             gt = box_cxcywh_to_xyxy(torch.from_numpy(gt)).numpy()
