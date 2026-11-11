@@ -7,7 +7,7 @@ paths:
 data:
   split: train
   image_size: [384, 640]
-  vehicle_classes: [car, motorbike, bus, truck]
+  vehicle_classes: [person, bicycle, car, motorbike, bus, taxi, pickup, truck, trailer]
   num_workers: 2
 
 detector:
@@ -20,7 +20,7 @@ detector:
   dim_feedforward: 1024
   dropout: 0.1
   num_queries: 30
-  num_classes: 4
+  num_classes: 9
   lr: 0.0001
   weight_decay: 0.0001
   epochs: 50

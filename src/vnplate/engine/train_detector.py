@@ -26,7 +26,7 @@ def build_detector(cfg) -> DETRDetector:
         dim_feedforward=int(d.dim_feedforward),
         dropout=float(d.dropout),
         num_queries=int(d.num_queries),
-        num_classes=int(d.get("num_classes", 4)),
+        num_classes=int(d.get("num_classes", len(cfg.data.get("vehicle_classes", [])) or 9)),
     )
 
 
@@ -130,7 +130,7 @@ def load_detector(path: str | Path, device: str | torch.device = "cuda") -> DETR
         dim_feedforward=int(cfg.get("dim_feedforward", 1024)),
         dropout=float(cfg.get("dropout", 0.1)),
         num_queries=int(cfg.get("num_queries", 30)),
-        num_classes=int(cfg.get("num_classes", 4)),
+        num_classes=int(cfg.get("num_classes", 9)),
     )
     model.load_state_dict(ckpt["model"])
     return model.to(device).eval()

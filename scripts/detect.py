@@ -11,7 +11,8 @@ import numpy as np
 
 from vnplate.config import load_config
 from vnplate.engine.train_detector import load_detector
-from vnplate.pipeline.video_pipeline import VEHICLE_CLASSES, VideoVehiclePipeline
+    from vnplate.data.lowlight import enhance_low_light
+    from vnplate.pipeline.video_pipeline import VEHICLE_CLASSES, VideoVehiclePipeline
 from vnplate.tracking.tracker import MultiObjectTracker
 from vnplate.fusion.temporal import TemporalFusion
 
@@ -36,6 +37,8 @@ def main() -> None:
     parser.add_argument("--image-size", nargs=2, type=int, default=None)
     parser.add_argument("--max-frames", type=int, default=None)
     parser.add_argument("--stride", type=int, default=1)
+    parser.add_argument("--night", action="store_true")
+    parser.add_argument("--low-light-mode", default="none", choices=["none", "auto", "clahe", "gamma", "retinex", "night"])
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -57,6 +60,7 @@ def main() -> None:
         min_votes=int(cfg.fusion.min_votes),
         min_confidence=float(cfg.fusion.min_confidence),
     )
+    low_light_mode = "auto" if args.night else args.low_light_mode
     pipeline = VideoVehiclePipeline(
         detector=detector,
         image_size=image_size,
@@ -65,6 +69,8 @@ def main() -> None:
         tracker=tracker,
         fusion=fusion,
         class_names=class_names,
+        low_light_mode=low_light_mode,
+        night_auto=bool(args.night),
     )
 
     in_path = Path(args.input)
@@ -75,6 +81,9 @@ def main() -> None:
         frame = cv2.imread(str(in_path))
         if frame is None:
             raise SystemExit(f"Cannot read image: {in_path}")
+        mode = "auto" if args.night else args.low_light_mode
+        if mode not in ("none", None, ""):
+            frame = enhance_low_light(frame, mode=mode)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         tensor, orig_size = pipeline._preprocess(frame_rgb)
         boxes, scores, labels = pipeline._detect(tensor, orig_size)

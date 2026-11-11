@@ -13,12 +13,12 @@ from vnplate.pipeline.video_pipeline import VideoVehiclePipeline
 from vnplate.tracking.tracker import MultiObjectTracker
 
 
-def _load_oracle(path: str) -> dict[int, dict]:
+def _load_oracle(path: str, classes: list[str] | None = None) -> dict[int, dict]:
     with open(path, "r", encoding="utf-8") as handle:
         data = json.load(handle)
     frames = data.get("frames", data if isinstance(data, list) else [])
     mapping: dict[int, dict] = {}
-    classes = ["car", "motorbike", "bus", "truck"]
+    classes = list(classes or ["car", "bus", "taxi", "motorbike", "pickup", "truck", "trailer"])
     for frame in frames:
         idx = int(frame.get("frame", 0))
         boxes = [obj["bbox"] for obj in frame.get("objects", [])]
@@ -44,6 +44,12 @@ def main() -> None:
     parser.add_argument("--image-size", nargs=2, type=int, default=None)
     parser.add_argument("--max-frames", type=int, default=None)
     parser.add_argument("--stride", type=int, default=1)
+    parser.add_argument("--night", action="store_true", help="Simulate/assume night video: enable auto low-light enhancement.")
+    parser.add_argument("--low-light-mode", default="none", choices=["none", "auto", "clahe", "gamma", "retinex", "night"])
+    parser.add_argument("--low-light-gamma", type=float, default=1.2)
+    parser.add_argument("--low-light-clip", type=float, default=2.0)
+    parser.add_argument("--denoise", action="store_true")
+    parser.add_argument("--byte-track", action="store_true", help="Use ByteTrack-style two-stage matching.")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -57,6 +63,10 @@ def main() -> None:
         min_hits=int(cfg.tracking.min_hits),
         iou_threshold=float(cfg.tracking.iou_threshold),
         use_kalman=bool(cfg.tracking.use_kalman),
+        byte_track=bool(args.byte_track or cfg.tracking.get("byte_track", False)),
+        high_thresh=float(cfg.tracking.get("high_thresh", 0.5)),
+        low_thresh=float(cfg.tracking.get("low_thresh", 0.1)),
+        new_track_thresh=float(cfg.tracking.get("new_track_thresh", 0.6)),
     )
     fusion = TemporalFusion(
         strategy=str(cfg.fusion.strategy),
@@ -64,6 +74,7 @@ def main() -> None:
         min_votes=int(cfg.fusion.min_votes),
         min_confidence=float(cfg.fusion.min_confidence),
     )
+    low_light_mode = "auto" if args.night else args.low_light_mode
     pipeline = VideoVehiclePipeline(
         detector=detector,
         image_size=image_size,
@@ -72,10 +83,15 @@ def main() -> None:
         tracker=tracker,
         fusion=fusion,
         class_names=tuple(cfg.data.get("vehicle_classes", ("car", "motorbike", "bus", "truck"))),
+        low_light_mode=low_light_mode,
+        low_light_gamma=float(args.low_light_gamma),
+        low_light_clip=float(args.low_light_clip),
+        denoise=bool(args.denoise),
+        night_auto=bool(args.night),
     )
 
     if args.oracle:
-        oracle = _load_oracle(args.oracle)
+        oracle = _load_oracle(args.oracle, list(cfg.data.get("vehicle_classes", [])))
         result = _run_oracle(pipeline, args.video, oracle, args.output, args.max_frames, args.stride)
     else:
         result = pipeline.process_video(args.video, output_path=args.output, max_frames=args.max_frames, stride=args.stride)

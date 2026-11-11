@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from vnplate.config import load_config
-from vnplate.data.synthetic import SyntheticDetectionDataset
+from vnplate.data.synthetic import VEHICLE_CLASSES, SyntheticDetectionDataset
 from vnplate.fusion.temporal import TemporalFusion
 from vnplate.models.detector import DETRDetector
 from vnplate.models.matcher import HungarianMatcher, SetCriterion
@@ -26,9 +26,9 @@ def main() -> None:
         dec_layers=1,
         dim_feedforward=128,
         num_queries=8,
-        num_classes=4,
+        num_classes=len(VEHICLE_CLASSES),
     ).to(device)
-    criterion = SetCriterion(num_classes=4, matcher=HungarianMatcher()).to(device)
+    criterion = SetCriterion(num_classes=len(VEHICLE_CLASSES), matcher=HungarianMatcher()).to(device)
     ds = SyntheticDetectionDataset(length=4, image_size=(128, 192), seed=7)
     batch = [ds[i] for i in range(2)]
     images = torch.stack([b["image"] for b in batch]).to(device)

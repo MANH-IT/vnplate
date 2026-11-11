@@ -17,13 +17,21 @@ def main() -> None:
     parser.add_argument("--height", type=int, default=384)
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument("--night", action="store_true", help="Simulate a low-light/night video.")
     args = parser.parse_args()
 
     out = Path(args.out)
-    annotations = write_demo_video(out, labels=args.labels, frames=args.frames, image_size=(args.height, args.width), fps=args.fps)
+    annotations = write_demo_video(
+        out,
+        labels=args.labels,
+        frames=args.frames,
+        image_size=(args.height, args.width),
+        fps=args.fps,
+        night=args.night,
+    )
     ann_path = out.with_suffix(".annotations.json")
     with open(ann_path, "w", encoding="utf-8") as handle:
-        json.dump({"video": str(out), "labels": {str(i + 1): t for i, t in enumerate(args.labels)}, "frames": annotations}, handle, indent=2)
+        json.dump({"video": str(out), "night": bool(args.night), "labels": {str(i + 1): t for i, t in enumerate(args.labels)}, "frames": annotations}, handle, indent=2)
     print(f"wrote {out} and {ann_path}")
 
 

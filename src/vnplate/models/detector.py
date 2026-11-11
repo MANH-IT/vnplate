@@ -27,7 +27,7 @@ class DETRDetector(nn.Module):
         dim_feedforward: int = 1024,
         dropout: float = 0.1,
         num_queries: int = 30,
-        num_classes: int = 4,
+        num_classes: int = 9,
     ):
         super().__init__()
         self.num_queries = num_queries

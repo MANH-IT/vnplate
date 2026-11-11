@@ -9,13 +9,13 @@ import numpy as np
 import torch
 from scipy.optimize import linear_sum_assignment
 
+from ..data.lowlight import enhance_low_light
+from ..data.taxonomy import VEHICLE_CLASSES
 from ..data.transforms import to_tensor
 from ..fusion.temporal import TemporalFusion
 from ..models.detector import DETRDetector
 from ..tracking.association import cxcywh_to_xyxy, iou_matrix
 from ..tracking.tracker import MultiObjectTracker
-
-VEHICLE_CLASSES = ("car", "motorbike", "bus", "truck")
 
 
 @dataclass
@@ -38,6 +38,11 @@ class VideoVehiclePipeline:
         class_names: tuple[str, ...] | None = None,
         fusion_labels: bool = True,
         label_iou_threshold: float | None = None,
+        low_light_mode: str = "none",
+        low_light_gamma: float = 1.2,
+        low_light_clip: float = 2.0,
+        denoise: bool = False,
+        night_auto: bool = False,
     ):
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.detector = detector.to(self.device).eval() if detector is not None else None
@@ -48,10 +53,37 @@ class VideoVehiclePipeline:
         self.fusion = fusion or TemporalFusion()
         self.class_names = tuple(class_names) if class_names is not None else VEHICLE_CLASSES
         self.fusion_labels = fusion_labels
+        self.low_light_mode = low_light_mode
+        self.low_light_gamma = low_light_gamma
+        self.low_light_clip = low_light_clip
+        self.denoise = denoise
+        self.night_auto = night_auto
         self._track_labels: dict[int, int] = {}
+
+    def _enhance(self, frame_bgr: np.ndarray) -> np.ndarray:
+        mode = self.low_light_mode
+        if self.night_auto and mode in ("none", "auto"):
+            from ..data.lowlight import is_low_light
+
+            if is_low_light(frame_bgr):
+                mode = "auto"
+            else:
+                mode = "none"
+        if mode in ("none", None, ""):
+            return frame_bgr
+        return enhance_low_light(
+            frame_bgr,
+            mode=mode,
+            gamma=self.low_light_gamma,
+            clip_limit=self.low_light_clip,
+            denoise=self.denoise,
+        )
 
     def _preprocess(self, frame_rgb: np.ndarray) -> tuple[torch.Tensor, tuple[int, int]]:
         orig = frame_rgb.shape[:2]
+        frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+        frame_bgr = self._enhance(frame_bgr)
+        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         resized = cv2.resize(frame_rgb, (self.image_size[1], self.image_size[0]), interpolation=cv2.INTER_LINEAR)
         return to_tensor(resized).unsqueeze(0).to(self.device), orig
 

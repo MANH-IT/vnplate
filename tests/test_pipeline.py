@@ -33,7 +33,7 @@ def test_pipeline_vehicle_oracle_labels_fuse():
     )
     frame = np.zeros((120, 200, 3), dtype=np.uint8)
     box = np.array([[20, 30, 100, 70]], dtype=np.float64)
-    result = pipeline.process_frame(frame, 0, gt_boxes=box, gt_labels=np.array([0]))
+    result = pipeline.process_frame(frame, 0, gt_boxes=box, gt_labels=np.array([2]))
     assert any(r["text"] == "car" for r in result.readings)
     assert pipeline.fusion.fuse(result.readings[0]["track_id"]).text == "car"
 
