@@ -1,0 +1,11 @@
+torch>=2.4
+torchvision>=0.19
+numpy>=1.26
+scipy>=1.11
+opencv-python>=4.9
+pyyaml>=6.0
+tqdm>=4.66
+Pillow>=10.0
+gdown>=5.1
+tensorboard>=2.15
+pytest>=8.0

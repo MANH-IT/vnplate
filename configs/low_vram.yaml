@@ -1,0 +1,47 @@
+paths:
+  data_root: data/vehicles
+  demo_dir: demo
+  ckpt_dir: checkpoints
+  log_dir: runs
+
+data:
+  split: train
+  image_size: [256, 384]
+  vehicle_classes: [car, motorbike, bus, truck]
+  num_workers: 2
+
+detector:
+  backbone: tiny
+  pretrained: false
+  hidden_dim: 128
+  nheads: 4
+  enc_layers: 2
+  dec_layers: 2
+  dim_feedforward: 512
+  dropout: 0.1
+  num_queries: 20
+  num_classes: 4
+  lr: 0.0002
+  weight_decay: 0.0001
+  epochs: 50
+  batch_size: 4
+  eval_batches: 20
+
+tracking:
+  max_age: 30
+  min_hits: 3
+  iou_threshold: 0.3
+  gate_distance: 3.0
+  use_kalman: true
+
+fusion:
+  min_confidence: 0.3
+  min_votes: 2
+  strategy: weighted
+  char_vote: true
+
+pipeline:
+  device: cuda
+  conf_threshold: 0.5
+  track_confirmation: 3
+  process_stride: 1
