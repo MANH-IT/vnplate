@@ -143,8 +143,14 @@ Kết quả JSON: danh sách `box` (xyxy), `score`, `label`.
 
 | Ảnh gốc | Sau nhận diện |
 | --- | --- |
-| <img src="assets/test_anh_original.jpg" width="420"> | <img src="assets/test_anh_detected.jpg" width="420"> |
-| <img src="assets/test_anh3_original.jpg" width="420"> | <img src="assets/test_anh3_detected.jpg" width="420"> |
+| ![Ảnh gốc](assets/test_anh_original.jpg) | ![Sau nhận diện](assets/test_anh_detected.jpg) |
+| ![Ảnh gốc](assets/test_anh3_original.jpg) | ![Sau nhận diện](assets/test_anh3_detected.jpg) |
+
+Ảnh trực tiếp:
+
+![Demo 1 - sau nhận diện](assets/test_anh_detected.jpg)
+
+![Demo 2 - sau nhận diện](assets/test_anh3_detected.jpg)
 
 Kết quả: **23** đối tượng ở ảnh 1 (car 14, bus 5, person 3, motorcycle 1) và **14** ở ảnh 2 (car 9, bus 2, person 2, truck 1).
 
