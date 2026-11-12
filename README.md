@@ -1,167 +1,90 @@
-# VNVehicleAI — Multi-frame Road-User Detection and Tracking
+# VNVehicleAI — Nhận diện đối tượng giao thông trên ảnh
 
-Dự án **Research** tái hiện pipeline đa khung hình cho nhận diện/tracking đối tượng giao thông (người đi bộ, xe đạp, xe máy, ô tô, bus, taxi, pickup, truck, trailer) trong video chất lượng thấp: **detect → track → temporal fusion** trên toàn bộ chuỗi frame, có xử lý ban đêm (low-light) và tracking robust (ByteTrack).
+Dự án **Research** nhận diện các loại phương tiện giao thông trên **ảnh** (ưu tiên), có hỗ trợ thêm pipeline video tracking. Hệ thống cung cấp **2 backend**:
 
-## Kiến trúc
+- **YOLO11 (ultralytics)** — khuyến nghị, hội tụ nhanh, chất lượng cao.
+- **DETR-style (PyTorch tự viết)** — kiến trúc nghiên cứu: ResNet + Transformer Encoder/Decoder + object queries.
 
-```
-Video frame
-   │
-   ├─ Low-light Enhancer        src/vnplate/data/lowlight.py
-   │     auto / clahe / gamma / retinex / night / none
-   │
-   ├─ DETR-style Detector        src/vnplate/models/detector.py
-   │     ResNet/Tiny backbone + Transformer Encoder/Decoder + object queries
-   │     (9 lớp: person, bicycle, car, motorbike, bus, taxi, pickup, truck, trailer)
-   │
-   ├─ Multi-Object Tracking       src/vnplate/tracking/
-   │     KalmanBoxFilter (8D: cx,cy,w,h,vx,vy,vw,vh) + Hungarian
-   │     + ByteTrack two-stage matching (tùy chọn)
-   │
-   └─ Temporal Fusion             src/vnplate/fusion/temporal.py
-         Weighted vote theo Track ID
-```
+Kèm module **tăng sáng ban đêm (low-light)** và (tùy chọn) **tracking + temporal fusion** cho video.
 
-`Track ID` (danh tính đối tượng theo thời gian) **khác** với loại phương tiện.
+## Tính năng
+
+- Nhận diện trên **1 ảnh** hoặc **cả thư mục ảnh**, xuất ảnh có bounding box + JSON kết quả.
+- Tự nhận diện backend từ checkpoint (`--backend auto`): DETR hay YOLO.
+- Tăng sáng trước khi detect: `auto / clahe / gamma / retinex / night / none`.
+- (Tùy chọn) Video tracking: Kalman 8D + Hungarian, hoặc ByteTrack two-stage.
+- (Tùy chọn) Temporal fusion theo Track ID cho video.
+
+## Hai backend
+
+| | YOLO11 | DETR-style |
+| --- | --- | --- |
+| Cài đặt | `ultralytics` | PyTorch thuần (trong repo) |
+| Số lớp | **7** (Thai) | **9** |
+| Tên lớp | car, bus, taxi, bike, pickup, truck, trailer | person, bicycle, car, motorbike, bus, taxi, pickup, truck, trailer |
+| Hội tụ | Nhanh (vài epoch) | Chậm (cần hàng trăm epoch) |
+| Trạng thái | **Khuyến nghị** | Tham khảo/nghiên cứu |
+
+> Lưu ý: DETR 9 lớp dùng `data.class_map` để ánh xạ 7 lớp Thai vào chỉ số 2–8. Hai lớp `person`/`bicycle` **chưa có dữ liệu huấn luyện**.
 
 ## Cấu trúc thư mục
 
 ```
 configs/
-  default.yaml              # cấu hình đầy đủ (9 lớp)
-  low_vram.yaml             # cấu hình nhẹ cho GPU 4GB
-  demo_synthetic.yaml       # cấu hình demo synthetic (tiny backbone)
-  vehicles_9class.yaml      # YAML cho Ultralytics YOLO baseline
-  vehicles_4class.yaml       # YAML cũ (4 lớp, giữ tham khảo)
-src/vnplate/                # package chính
-  config.py                 # config loader
+  thai_yolo.yaml          # YOLO 7 lớp (Thai) — dùng cho nhận diện ảnh
+  thai_9class.yaml        # DETR 9 lớp trên dữ liệu Thai (class_map 7->9)
+  default.yaml            # DETR cấu hình đầy đủ (9 lớp)
+  low_vram.yaml           # DETR nhẹ cho GPU 4GB
+  demo_synthetic.yaml     # DETR demo synthetic (tiny backbone)
+  vehicles_9class.yaml    # YAML YOLO cũ (tham khảo)
+  vehicles_4class.yaml    # YAML YOLO cũ 4 lớp (tham khảo)
+src/vnplate/
+  config.py               # config loader
   data/
-    taxonomy.py             # định nghĩa lớp đối tượng (VEHICLE_CLASSES = ROAD_USER_CLASSES)
-    lowlight.py             # tăng sáng ban đêm (auto/clahe/gamma/retinex/night)
-    synthetic.py            # dữ liệu tổng hợp + video demo (hỗ trợ --night)
-    transforms.py           # resize, normalize
-    yolo.py                 # YOLO-format dataset loader
-    factory.py              # build_detection_dataset (YOLO → synthetic fallback)
-  models/
-    backbone.py             # ResNet18/34/50, Tiny
-    transformer.py          # encoder/decoder layers, sine pos-encoding
-    detector.py             # DETR-style detector
-    matcher.py              # Hungarian matcher + DETR set loss
-    box_ops.py              # box conversion + GIoU
-  tracking/
-    kalman.py               # Kalman filter 8D
-    association.py          # IoU matrix + Hungarian
-    tracker.py              # SORT/ByteTrack multi-object tracker
-  fusion/temporal.py        # temporal fusion
-  pipeline/video_pipeline.py # pipeline video end-to-end (low-light + tracking)
+    taxonomy.py           # định nghĩa lớp đối tượng (VEHICLE_CLASSES)
+    lowlight.py           # tăng sáng (auto/clahe/gamma/retinex/night)
+    yolo.py               # YOLO-format dataset loader (hỗ trợ class_map)
+    factory.py            # build_detection_dataset (YOLO -> synthetic fallback)
+    synthetic.py          # dữ liệu tổng hợp + video demo
+    transforms.py         # resize, normalize, box conversion
+  models/                 # DETR: backbone, transformer, detector, matcher, box_ops
+  tracking/               # kalman, association, tracker (SORT/ByteTrack)
+  fusion/temporal.py      # temporal fusion
+  pipeline/video_pipeline.py  # pipeline video (low-light + tracking)
   engine/
-    train_detector.py       # huấn luyện DETR
-    evaluate.py             # detection / tracking metrics
-scripts/                    # CLI
-tests/                      # pytest
+    train_detector.py     # huấn luyện DETR
+    evaluate.py           # detection / tracking metrics
+scripts/
+  detect.py               # nhận diện ảnh (DETR hoặc YOLO)
+  train_yolo_baseline.py  # huấn luyện YOLO11
+  train_detector.py       # huấn luyện DETR
+  eval.py                 # đánh giá DETR
+  run_video.py            # pipeline video (tùy chọn)
+  make_demo.py            # sinh video synthetic
+  smoke_test.py           # kiểm tra module
+  download_thai_dataset.py
+tests/                    # pytest
 ```
-
-## Lớp đối tượng (9 lớp)
-
-`person, bicycle, car, motorbike, bus, taxi, pickup, truck, trailer` (định nghĩa trong `src/vnplate/data/taxonomy.py`).
-
-## Xử lý ban đêm / ánh sáng yếu
-
-Module `src/vnplate/data/lowlight.py` cung cấp các chế độ tăng sáng trước detection:
-
-- `auto`: tự động tăng gamma theo độ sáng trung bình + CLAHE
-- `clahe`: cân bằng histogram cục bộ trên kênh L (LAB)
-- `gamma`: gamma correction
-- `retinex`: Single-Scale Retinex
-- `night`: gamma + CLAHE mạnh + contrast boost
-- `none`: tắt
-
-CLI: `--night` (bật auto) hoặc `--low-light-mode clahe --low-light-clip 2.0 --denoise`.
-
-## Tracking nâng cao
-
-`MultiObjectTracker` hỗ trợ `byte_track=True` (two-stage matching: high-score + low-score) để giữ ID trong cảnh đông đúc/che khuất, phù hợp hướng đi của các hệ thống production (YOLOv8 + ByteTrack/BoT-SORT).
-
-CLI: `--byte-track`.
-
-## Công nghệ sử dụng
-
-- **Deep learning:** PyTorch, TorchVision
-- **Detection:** DETR-style (ResNet/Tiny backbone + Transformer Encoder/Decoder)
-- **Tracking:** Kalman Filter 8D + Hungarian algorithm (scipy) + ByteTrack (tùy chọn)
-- **Low-light:** CLAHE, Gamma, Retinex, auto night enhancement
-- **Image/Video:** OpenCV, NumPy
-- **Config:** PyYAML
-- **Test:** pytest
-- **Hardware:** CUDA + AMP (tùy chọn), hỗ trợ CPU
-- **Baseline:** YOLO/RT-DETR qua ultralytics
 
 ## Cài đặt
 
 ```bash
 conda env create -f environment.yml
 conda activate vnplate
+
 # PyTorch CUDA (RTX 3050 / CUDA 12.4)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+pip install ultralytics          # cho backend YOLO
 pip install -e .
 ```
 
-## Quickstart
-
-```bash
-# 1) Kiểm tra toàn bộ module chạy được (GPU nếu có)
-python scripts/smoke_test.py
-
-# 2) Sinh video demo tổng hợp + annotations
-python scripts/make_demo.py --out demo/synthetic.mp4 --frames 90
-
-# 3) Chạy pipeline tracking bằng GT boxes (oracle, không cần train)
-python scripts/run_video.py \
-  --video demo/synthetic.mp4 \
-  --oracle demo/synthetic.annotations.json \
-  --output demo/tracked.mp4
-```
-
-## Demo tổng hợp (synthetic)
-
-```bash
-# 1) Sinh video demo với đủ 9 loại đối tượng
-python scripts/make_demo.py --out demo/synthetic9.mp4 --frames 90 \
-  --labels person bicycle car motorbike bus taxi pickup truck trailer --height 256 --width 384
-
-# 2) Train nhanh trên synthetic (9 lớp)
-python scripts/train_detector.py --config configs/demo_synthetic.yaml \
-  --steps 3000 --synthetic-length 16384
-
-# 3) Chạy end-to-end: detect -> track -> temporal fusion
-python scripts/run_video.py --config configs/demo_synthetic.yaml \
-  --video demo/synthetic9.mp4 --detector checkpoints/detector_smoke.pt \
-  --output demo/tracked9.mp4 --result-json demo/results9.json
-```
-
-Kết quả: `demo/tracked9.mp4` (video có box + track ID + nhãn) và `demo/results9.json`
-(danh sách `track_id`, `text`, `confidence`, `observations`).
-
-## Demo ban đêm (low-light + ByteTrack)
-
-```bash
-python scripts/make_demo.py --out demo/synthetic_night.mp4 --frames 60 \
-  --labels person bicycle car motorbike bus truck --height 256 --width 384 --night
-python scripts/run_video.py --config configs/demo_synthetic.yaml \
-  --video demo/synthetic_night.mp4 --detector checkpoints/detector_smoke.pt \
-  --output demo/tracked_night.mp4 --result-json demo/results_night.json \
-  --night --byte-track
-```
-
-## Dataset phương tiện
-
-Nếu không có dataset thật, pipeline dùng `SyntheticDetectionDataset` (nội bộ, để smoke test). Để train với dữ liệu thật, tải dataset Thai Vehicle Classification:
+## Dataset (Thai Vehicle — 7 lớp)
 
 ```bash
 python scripts/download_thai_dataset.py --root data/vehicles
 ```
 
-Dataset phải có layout YOLO:
+Layout YOLO:
 
 ```text
 data/vehicles/<dataset>/train/images/*.jpg
@@ -170,122 +93,166 @@ data/vehicles/<dataset>/valid/images/*.jpg
 data/vehicles/<dataset>/valid/labels/*.txt
 ```
 
-Loader cũng chấp nhận layout `images/<split>` + `labels/<split>`.
+Phân bố lớp (train, ~24k box): car 8709, pickup 5061, bus 3911, bike 2217, truck 1984, taxi 1257, trailer 914.
 
-Dataset Thai gốc có 7 lớp (car, bus, taxi, motorbike, pickup, truck, trailer). Cấu hình 9 lớp nằm trong `configs/default.yaml`, `configs/low_vram.yaml` và `configs/vehicles_9class.yaml` (dùng cho baseline Ultralytics). Nếu cần gộp lớp, khai báo `data.class_map` trong config.
+`configs/thai_yolo.yaml` khai báo đúng 7 lớp cho backend YOLO. `configs/thai_9class.yaml` dùng `data.class_map: {0:2, 1:4, 2:5, 3:3, 4:6, 5:7, 6:8}` cho DETR 9 lớp.
 
-> Lưu ý: checkpoint cũ train với số lớp khác phải train lại; không dùng lẫn giữa các cấu hình khác nhau về số lớp.
+## Quickstart — nhận diện ảnh
 
-Đánh giá nhanh trên tập validation:
-
-```bash
-python scripts/eval.py --split val --detector checkpoints/detector_best.pt --max-batches 50
-```
-
-Sau khi tải, `build_detection_dataset` tự ưu tiên dataset YOLO này; nếu không có, fallback sang synthetic.
-
-## Chạy pretrained baseline (nhanh)
-
-Nếu checkpoint DETR chưa hội tụ, có thể chạy baseline pretrained để thử ảnh/video thật ngay (COCO classes: `person`, `bicycle`, `car`, `motorbike`, `bus`, `truck`):
+### Với YOLO (khuyến nghị)
 
 ```bash
-python scripts/detect_pretrained.py --input data_test/anh.jpg --output demo/test_anh_pretrained.jpg --result-json demo/test_anh_pretrained.json --conf-threshold 0.5
-python scripts/detect_pretrained.py --input data_test/video.mp4 --output demo/test_video.mp4 --max-frames 30 --stride 30
+# 1 ảnh
+python scripts/detect.py --config configs/thai_yolo.yaml \
+  --input data_test/anh.jpg \
+  --detector runs/detect/runs/baseline/yolo11n_thai/weights/best.pt \
+  --output demo/anh_detected.jpg --conf-threshold 0.25
+
+# cả thư mục
+python scripts/detect.py --config configs/thai_yolo.yaml \
+  --input data_test \
+  --detector runs/detect/runs/baseline/yolo11n_thai/weights/best.pt \
+  --output demo/yolo_detected --conf-threshold 0.2
 ```
+
+### Với DETR
+
+```bash
+python scripts/detect.py --config configs/thai_9class.yaml \
+  --input data_test/anh.jpg \
+  --detector checkpoints/detector_best.pt \
+  --result-json demo/detr_result.json
+```
+
+Backend được tự phát hiện; có thể ép bằng `--backend yolo` hoặc `--backend detr`.
+
+### Ảnh tối / ban đêm
+
+```bash
+python scripts/detect.py --config configs/thai_yolo.yaml \
+  --input data_test/anh_4.jpg \
+  --detector runs/detect/runs/baseline/yolo11n_thai/weights/best.pt \
+  --low-light-mode clahe      # hoặc --night
+```
+
+Kết quả JSON: danh sách `box` (xyxy), `score`, `label`.
+
+## Demo trên ảnh thực tế
+
+Ảnh đường phố thực tế trong `data_test/`, nhận diện bằng YOLO pretrained COCO (`yolo11n.pt`):
+
+| Ảnh gốc | Sau nhận diện |
+| --- | --- |
+| <img src="assets/test_anh_original.jpg" width="420"> | <img src="assets/test_anh_detected.jpg" width="420"> |
+| <img src="assets/test_anh3_original.jpg" width="420"> | <img src="assets/test_anh3_detected.jpg" width="420"> |
+
+Kết quả: **23** đối tượng ở ảnh 1 (car 14, bus 5, person 3, motorcycle 1) và **14** ở ảnh 2 (car 9, bus 2, person 2, truck 1).
+
+```bash
+python scripts/detect.py --config configs/thai_yolo.yaml \
+  --input data_test/anh.jpg --detector yolo11n.pt \
+  --output assets/test_anh_detected.jpg --conf-threshold 0.35
+```
+
+> Lưu ý: model huấn luyện trên dữ liệu Thai hiện có **domain gap** với ảnh ngoài miền (confidence thấp), nên demo trên dùng model COCO pretrained. Để model tự huấn luyện bắt tốt ảnh thực tế, cần bổ sung ảnh cùng miền vào tập train.
 
 ## Huấn luyện
 
-Với GPU 4GB, dùng cấu hình nhẹ:
+### YOLO11 (khuyến nghị)
 
 ```bash
-python scripts/train_detector.py --config configs/low_vram.yaml
-python scripts/run_video.py --config configs/low_vram.yaml --video demo/synthetic.mp4 \
-  --detector checkpoints/detector_last.pt
+python scripts/train_yolo_baseline.py \
+  --model yolo11n.pt --data configs/thai_yolo.yaml \
+  --epochs 50 --imgsz 640 --batch 4 --device 0 --workers 4 \
+  --name yolo11n_thai
 ```
 
-Chạy thử nhanh:
+Trọng số: `runs/detect/runs/baseline/yolo11n_thai/weights/best.pt`. Script tự chạy `val` và in mAP cuối.
+
+> Trên RTX 3050 4GB: ~2.5 phút/epoch, 50 epoch ~2.5 giờ. Có thể giảm `--epochs`, `--imgsz` để nhanh hơn.
+
+### DETR
 
 ```bash
-python scripts/train_detector.py --steps 50
+python scripts/train_detector.py --config configs/thai_9class.yaml
+# chạy thử nhanh
+python scripts/train_detector.py --config configs/thai_9class.yaml --steps 50
 ```
-
-## Chạy trên ảnh / video
-
-```bash
-# Ảnh
-python scripts/detect.py --input path/to/image.jpg --detector checkpoints/detector_best.pt --result-json demo/detect_image.json
-
-# Ảnh ban đêm
-python scripts/detect.py --input path/to/night.jpg --detector checkpoints/detector_best.pt --night --result-json demo/detect_night.json
-
-# Video
-python scripts/detect.py --input path/to/video.mp4 --detector checkpoints/detector_best.pt --output demo/detect_video.mp4 --result-json demo/detect_video.json
-```
-
-Kết quả JSON gồm các bounding box `box` (xyxy), `score`, `label` (hoặc `final` cho video).
-
-## Chạy trên video
-
-```bash
-# với checkpoint đã train
-python scripts/run_video.py \
-  --video path/to/input.mp4 \
-  --detector checkpoints/detector_best.pt \
-  --output demo/output.mp4 \
-  --result-json demo/results.json
-
-# ban đêm + ByteTrack
-python scripts/run_video.py --video input.mp4 --detector checkpoints/detector_best.pt \
-  --night --byte-track --output demo/output_night.mp4
-
-# giới hạn số frame / bỏ frame
-python scripts/run_video.py --video input.mp4 --detector ... --max-frames 300 --stride 2
-```
-
-Kết quả JSON gồm `frames_processed`, `fps`, và danh sách kết quả fusion theo `track_id`.
 
 ## Đánh giá
 
 ```bash
-python scripts/eval.py --split test --detector checkpoints/detector_best.pt
-
-# thử nhiều ngưỡng confidence để chọn operating point
-python scripts/eval.py --split val --detector checkpoints/detector_best.pt --conf-threshold 0.05 0.3 0.5 0.6
+# DETR trên tập validation, thử nhiều ngưỡng confidence
+python scripts/eval.py --config configs/thai_9class.yaml --split val \
+  --detector checkpoints/detector_best.pt --max-batches 50 \
+  --conf-threshold 0.3 0.5 0.6
 ```
 
-- Detection: Precision / Recall / F1 tại IoU 0.5 (greedy Hungarian matching).
-- Tracking: `tracking_metrics()` trong `engine/evaluate.py` trả về IDF1 + ID switches.
+YOLO tự đánh giá sau khi train (`FINAL mAP50-95=... mAP50=...`).
 
-## Kết quả thực nghiệm (synthetic demo)
+## Kết quả thực nghiệm
 
-### Cấu hình huấn luyện demo
+### YOLO11n trên Thai (val, 3 epoch)
 
-| Thông số | Giá trị |
+| Metric | Giá trị |
 | --- | --- |
-| GPU | NVIDIA RTX 3050 Laptop (4GB VRAM) |
-| Config | `configs/demo_synthetic.yaml` (Tiny backbone, hidden_dim 128, 256×384, batch 4) |
-| Steps | 1500–3000 |
-| Loss | ~8.2 → ~5.3 (9 lớp) |
+| mAP50 | **0.652** |
+| mAP50-95 | **0.421** |
 
-### Tracking + Temporal Fusion
+| Class | P | R | mAP50 | mAP50-95 |
+| --- | --- | --- | --- | --- |
+| car | 0.566 | 0.701 | 0.664 | 0.416 |
+| bus | 0.708 | 0.793 | 0.817 | 0.602 |
+| taxi | 0.657 | 0.716 | 0.734 | 0.462 |
+| bike | 0.670 | 0.734 | 0.678 | 0.319 |
+| pickup | 0.382 | 0.570 | 0.456 | 0.300 |
+| truck | 0.686 | 0.522 | 0.645 | 0.435 |
+| trailer | 0.360 | 0.694 | 0.564 | 0.414 |
 
-- Tracking ổn định giữ danh tính qua che khuất (max_age frames).
-- Temporal fusion (char_vote/weighted) gán nhãn nhất quán cho từng track.
-- ByteTrack giữ ID tốt hơn trong cảnh đông đúc.
+Chỉ sau **3 epoch** YOLO đã vượt xa DETR (F1 ~0.35 sau 14 epoch). Train đủ 50 epoch cho kết quả tốt hơn.
+
+### DETR (Thai, 14 epoch)
+
+| Conf | Precision | Recall | F1 |
+| --- | --- | --- | --- |
+| 0.30 | 0.131 | 0.551 | 0.212 |
+| 0.50 | 0.231 | 0.406 | 0.295 |
+| 0.60 | 0.329 | 0.377 | 0.351 |
 
 ### Nhận xét
 
-- **Tracking + temporal fusion hoạt động tốt**: giữ danh tính ổn định, nhãn nhất quán qua thời gian.
-- **Detection cần thêm thời gian hội tụ**: DETR gốc cần hàng trăm epoch; với synthetic demo, loss giảm dần nhưng chưa đạt mAP cao.
-- **Hạn chế**: precision thấp (nhiều box trùng/giả), phân loại lớp thiên lệch trên dữ liệu chưa cân bằng.
-- **Hướng cải thiện**: thêm augment (flip/mosaic/color jitter), cân bằng lớp, train lâu hơn, hoặc dùng baseline YOLO11 để so sánh.
+- **YOLO vượt trội** về tốc độ hội tụ và độ chính xác trên dữ liệu thật.
+- **DETR** cần hàng trăm epoch; hiện chưa hội tụ.
+- **Domain gap**: ảnh ngoài miền Thai (tối, cảnh khác) cho confidence thấp — cần bổ sung dữ liệu tương tự vào train để cải thiện.
+
+## (Tùy chọn) Video + tracking
+
+```bash
+python scripts/run_video.py --config configs/thai_9class.yaml \
+  --video path/to/input.mp4 --detector checkpoints/detector_best.pt \
+  --output demo/output.mp4 --result-json demo/results.json
+
+# ban đêm + ByteTrack
+python scripts/run_video.py --config configs/thai_9class.yaml \
+  --video input.mp4 --detector checkpoints/detector_best.pt \
+  --night --byte-track --output demo/output_night.mp4
+```
+
+Pipeline video: `detect → track → temporal fusion`. `run_video.py` dùng backend DETR.
+
+## Kiểm thử
+
+```bash
+python scripts/smoke_test.py
+pytest -q
+```
 
 ## Ghi chú kỹ thuật
 
-- **VRAM thấp (4GB):** dùng `backbone: tiny`, giảm `hidden_dim`, `num_queries`, batch size.
-- **DETR cần thời gian hội tụ:** dùng pretrained backbone và AMP.
-- Temporal fusion là bước triển khai bổ sung (weighted vote), không khẳng định trùng thuật toán trong paper gốc.
-- Dữ liệu ban đêm: synthetic demo mô phỏng ánh sáng yếu (giảm sáng 78%, thêm noise, tint vàng).
+- **VRAM thấp (4GB):** giảm `--batch`, `--imgsz`; DETR dùng `backbone: tiny`, giảm `hidden_dim`/`num_queries`.
+- **DETR cần thời gian hội tụ:** dùng pretrained backbone + AMP.
+- **Số lớp phải khớp checkpoint:** checkpoint 7 lớp ≠ 9 lớp; không dùng lẫn.
+- **`configs/vehicles_9class.yaml`** là YAML cũ (tên lớp không khớp dataset Thai) — dùng `configs/thai_yolo.yaml`.
 
 ## License
 

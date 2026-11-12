@@ -1,0 +1,13 @@
+path: /mnt/d/Baitapopencv/VNPlateAI/data/vehicles/Thai_vehicle_classification_dataset_TR1
+train: train/images
+val: valid/images
+test: test/images
+
+names:
+  0: car
+  1: bus
+  2: taxi
+  3: bike
+  4: pickup
+  5: truck
+  6: trailer
