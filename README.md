@@ -175,6 +175,13 @@ python scripts/train_yolo_baseline.py \
 
 Trọng số: `runs/detect/runs/baseline/yolo11n_thai/weights/best.pt`. Script tự chạy `val` và in mAP cuối.
 
+**Resume** nếu training bị ngắt (dùng `last.pt`, đọc lại args đã lưu):
+
+```bash
+python scripts/train_yolo_baseline.py --resume \
+  --model runs/detect/runs/baseline/yolo11n_thai/weights/last.pt
+```
+
 > Trên RTX 3050 4GB: ~2.5 phút/epoch, 50 epoch ~2.5 giờ. Có thể giảm `--epochs`, `--imgsz` để nhanh hơn.
 
 ### DETR

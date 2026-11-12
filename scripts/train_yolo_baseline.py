@@ -13,24 +13,34 @@ def main() -> None:
     parser.add_argument("--device", default="0")
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--name", default="yolo11n_4class")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from the --model checkpoint (point --model at last.pt). Uses args saved in the checkpoint.",
+    )
     args = parser.parse_args()
 
     model = YOLO(args.model)
-    model.train(
-        data=args.data,
-        epochs=args.epochs,
-        imgsz=args.imgsz,
-        batch=args.batch,
-        device=args.device,
-        workers=args.workers,
-        project="runs/baseline",
-        name=args.name,
-        exist_ok=True,
-        amp=True,
-        cache=False,
-        plots=False,
-    )
-    metrics = model.val(data=args.data, split="val", device=args.device, verbose=False)
+    if args.resume:
+        model.train(resume=True)
+        data = getattr(model.trainer.args, "data", args.data)
+    else:
+        model.train(
+            data=args.data,
+            epochs=args.epochs,
+            imgsz=args.imgsz,
+            batch=args.batch,
+            device=args.device,
+            workers=args.workers,
+            project="runs/baseline",
+            name=args.name,
+            exist_ok=True,
+            amp=True,
+            cache=False,
+            plots=False,
+        )
+        data = args.data
+    metrics = model.val(data=data, split="val", device=args.device, verbose=False)
     print(f"FINAL mAP50-95={metrics.box.map:.4f} mAP50={metrics.box.map50:.4f}")
 
 
