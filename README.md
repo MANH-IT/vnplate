@@ -205,12 +205,28 @@ YOLO tự đánh giá sau khi train (`FINAL mAP50-95=... mAP50=...`).
 
 ## Kết quả thực nghiệm
 
-### YOLO11n trên Thai (val, 3 epoch)
+### YOLO11n trên Thai (val) — `best.pt` (epoch 30/50)
 
 | Metric | Giá trị |
 | --- | --- |
-| mAP50 | **0.652** |
-| mAP50-95 | **0.421** |
+| **mAP50** | **0.809** |
+| **mAP50-95** | **0.549** |
+| mAP75 | 0.635 |
+
+| Class | P | R | mAP50 | mAP50-95 |
+| --- | --- | --- | --- | --- |
+| car | 0.757 | 0.689 | 0.794 | 0.521 |
+| bus | 0.918 | 0.831 | 0.916 | 0.694 |
+| taxi | 0.754 | 0.800 | 0.848 | 0.573 |
+| bike | 0.712 | 0.791 | 0.784 | 0.382 |
+| pickup | 0.650 | 0.655 | 0.713 | 0.486 |
+| truck | 0.823 | 0.781 | 0.862 | 0.613 |
+| trailer | 0.711 | 0.667 | 0.745 | 0.571 |
+
+Training dừng ở ~epoch 32/50 (best ở epoch 30). Có thể resume bằng `--resume` (xem mục Huấn luyện).
+
+<details>
+<summary>Tham khảo: kết quả sau 3 epoch (mAP50 0.652 / mAP50-95 0.421)</summary>
 
 | Class | P | R | mAP50 | mAP50-95 |
 | --- | --- | --- | --- | --- |
@@ -222,7 +238,9 @@ YOLO tự đánh giá sau khi train (`FINAL mAP50-95=... mAP50=...`).
 | truck | 0.686 | 0.522 | 0.645 | 0.435 |
 | trailer | 0.360 | 0.694 | 0.564 | 0.414 |
 
-Chỉ sau **3 epoch** YOLO đã vượt xa DETR (F1 ~0.35 sau 14 epoch). Train đủ 50 epoch cho kết quả tốt hơn.
+</details>
+
+Chỉ sau **3 epoch** YOLO đã vượt xa DETR (F1 ~0.35 sau 14 epoch).
 
 ### DETR (Thai, 14 epoch)
 
@@ -234,9 +252,9 @@ Chỉ sau **3 epoch** YOLO đã vượt xa DETR (F1 ~0.35 sau 14 epoch). Train �
 
 ### Nhận xét
 
-- **YOLO vượt trội** về tốc độ hội tụ và độ chính xác trên dữ liệu thật.
+- **YOLO vượt trội** về tốc độ hội tụ và độ chính xác trên dữ liệu thật (mAP50 0.81 sau ~30 epoch).
 - **DETR** cần hàng trăm epoch; hiện chưa hội tụ.
-- **Domain gap**: ảnh ngoài miền Thai (tối, cảnh khác) cho confidence thấp — cần bổ sung dữ liệu tương tự vào train để cải thiện.
+- **Domain gap**: trên ảnh `data_test` (ngoài miền Thai), `best.pt` chỉ cho ~6 detection ở conf 0.25 → cần bổ sung ảnh cùng miền vào train để cải thiện.
 
 ## (Tùy chọn) Video + tracking
 
