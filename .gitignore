@@ -12,4 +12,12 @@ demo/*.json
 *.pt
 *.pth
 *.onnx
+*.zip
+VNPlateAI_Checkpoints-*/
+train.log
+demo/detected_c*/
+demo/thai_*_detected/
+demo/yolo_detected/
+demo/frame_*.jpg
+demo/anh_detected.jpg
 data_test/*.mp4

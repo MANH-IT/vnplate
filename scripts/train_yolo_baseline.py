@@ -4,15 +4,15 @@ from ultralytics import YOLO
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Fine-tune a YOLO/RT-DETR baseline on the 4-class vehicle dataset.")
+    parser = argparse.ArgumentParser(description="Fine-tune a YOLO baseline on the Thai 7-class vehicle dataset.")
     parser.add_argument("--model", default="yolo11n.pt")
-    parser.add_argument("--data", default="configs/vehicles_4class.yaml")
+    parser.add_argument("--data", default="configs/thai_yolo.yaml")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--batch", type=int, default=4)
     parser.add_argument("--device", default="0")
     parser.add_argument("--workers", type=int, default=2)
-    parser.add_argument("--name", default="yolo11n_4class")
+    parser.add_argument("--name", default="yolo11n_thai")
     parser.add_argument(
         "--resume",
         action="store_true",

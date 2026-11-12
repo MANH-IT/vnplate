@@ -49,8 +49,6 @@ configs/
   default.yaml            # DETR cấu hình đầy đủ (9 lớp)
   low_vram.yaml           # DETR nhẹ cho GPU 4GB
   demo_synthetic.yaml     # DETR demo synthetic (tiny backbone)
-  vehicles_9class.yaml    # YAML YOLO cũ (tham khảo)
-  vehicles_4class.yaml    # YAML YOLO cũ 4 lớp (tham khảo)
 
 src/vnplate/
   config.py               # config loader
@@ -338,7 +336,7 @@ pytest -q
 | VRAM thấp (4GB) | Giảm `--batch`, `--imgsz`; DETR dùng `backbone: tiny`, giảm `hidden_dim` / `num_queries` |
 | DETR hội tụ chậm | Dùng pretrained backbone + AMP (Automatic Mixed Precision) |
 | Số lớp phải khớp checkpoint | Checkpoint 7 lớp ≠ 9 lớp — không dùng lẫn |
-| YAML cũ | `configs/vehicles_9class.yaml` là YAML cũ (tên lớp không khớp dataset Thai) — dùng `configs/thai_yolo.yaml` |
+| Chọn đúng YAML | YOLO dùng `configs/thai_yolo.yaml` (7 lớp); DETR dùng `configs/thai_9class.yaml` (9 lớp + class_map) |
 
 ## 15. License
 
